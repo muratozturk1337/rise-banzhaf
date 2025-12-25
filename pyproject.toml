@@ -1,0 +1,13 @@
+[project]
+name = "rise-banzhaf"
+version = "0.1.0"
+description = "Banzhaf-based contrastive RISE explanations"
+requires-python = ">=3.12"
+
+dependencies = [
+    "jupyterlab",
+    "ipykernel",
+    "numpy",
+    "torch"
+]
+
