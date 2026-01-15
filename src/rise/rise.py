@@ -54,11 +54,14 @@ class RISE(nn.Module):
         self.N = self.masks.shape[0]
         self.p = self.masks.mean().item()
 
-    def forward(self, x):
+    def forward(self, x, method="rise"):
         """
         x: Tensor (1, C, H, W)
-        returns: saliency map (C, H, W)
+        method: "rise" | "banzhaf-approx"
+        returns: saliency map (num_classes, H, W)
         """
+        assert method in {"rise", "banzhaf-approx"}
+
         N = self.N
         _, C, H, W = x.shape
 
@@ -73,16 +76,26 @@ class RISE(nn.Module):
                 outputs.append(self.model(batch))
 
         outputs = torch.cat(outputs, dim=0)  # (N, num_classes)
+        outputs_T = outputs.T                # (num_classes, N)
 
-        # RISE aggregation
-        sal = torch.matmul(
-            outputs.T,                      # (num_classes, N)
-            self.masks.view(N, H * W)       # (N, H*W)
-        )
+        M = self.masks.view(N, H * W).float()  # (N, HW)
+
+        if method == "rise":
+            sal = outputs_T @ M               # (num_classes, HW)
+            sal = sal / (N * self.p)
+        elif method == "banzhaf-approx":
+            eps = 1e-6
+            count_1 = M.sum(dim=0)            # (HW,)
+            count_0 = N - count_1
+
+            sum_1 = outputs_T @ M
+            sum_0 = outputs_T @ (1 - M)
+
+            sal = sum_1 / (count_1 + eps) - sum_0 / (count_0 + eps)
+
         n_classes = outputs.shape[1]
 
         sal = sal.view(n_classes, H, W)
-        sal = sal / (N * self.p)
 
         return sal
     
